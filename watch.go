@@ -210,7 +210,7 @@ func Kill() {
 func Restart(appname string) {
 	Debugf("kill running process")
 	Kill()
-	Start(appname)
+	go Start(appname)
 }
 
 func checkStatus() {
@@ -219,14 +219,19 @@ func checkStatus() {
 			fmt.Println("checkStatus.recover -> ", e)
 		}
 	}()
+	i := 0
 	for {
 		state.Lock()
-		err := cmd.Run()
-		if err != nil {
-			ColorLog("[INFO] %s is exited: %v\n", appname, err)
-		} else {
-			ColorLog("[INFO] %s is exited.\n", appname)
+		if i == 5 {
+			os.Exit(2)
 		}
+		cmd = exec.Command(appname)
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		cmd.Args = append([]string{appname}, conf.CmdArgs...)
+		cmd.Env = append(os.Environ(), conf.Envs...)
+		cmd.Start()
+		i = i + 1
 		state.Unlock()
 	}
 }
@@ -237,13 +242,7 @@ func Start(appname string) {
 		appname = "./" + appname
 	}
 
-	cmd = exec.Command(appname)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	cmd.Args = append([]string{appname}, conf.CmdArgs...)
-	cmd.Env = append(os.Environ(), conf.Envs...)
 	go checkStatus()
-	ColorLog("[INFO] %s is running...\n", appname)
 	started <- true
 }
 
